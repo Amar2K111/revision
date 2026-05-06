@@ -1,12 +1,10 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getMath3eDirectiveByTopic } from "../../../data/math3emeExpertDirectives";
-import { createSupabaseServerClient } from "../../../lib/supabase/server";
 import {
   buildGeminiUserMessage,
   GENERIC_EXPERT_DIRECTIVE,
-  getRevisionFacileSystemPrompt,
-} from "../../../lib/revisionFacilePrompt";
-import { extractPracticeQuizFence } from "../../../lib/parseFlashrevisQuiz";
+  getFlashRevisSystemPrompt,
+} from "../../../lib/flashRevisPrompt";
 
 /** Modèle stable conseillé ; `gemini-1.5-flash` n’est plus disponible sur l’API v1beta. */
 const DEFAULT_MODEL = "gemini-2.5-flash";
@@ -28,28 +26,6 @@ function resolveExpertDeepening(classId, subjectId, topicLabel) {
 }
 
 export async function POST(request) {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return Response.json({ error: "Connexion requise pour générer une fiche." }, { status: 401 });
-  }
-
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("is_premium")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (profileError || !profile?.is_premium) {
-    return Response.json(
-      { error: "Offre Premium requise pour générer une fiche." },
-      { status: 403 },
-    );
-  }
-
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey?.trim()) {
     return Response.json(
@@ -90,7 +66,7 @@ export async function POST(request) {
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({
     model: modelName,
-    systemInstruction: getRevisionFacileSystemPrompt(),
+    systemInstruction: getFlashRevisSystemPrompt(),
   });
 
   const userText = buildGeminiUserMessage({
@@ -103,8 +79,7 @@ export async function POST(request) {
 
   try {
     const result = await model.generateContent(userText);
-    const raw = result.response.text()?.trim() ?? "";
-    const { markdown, practiceQuiz } = extractPracticeQuizFence(raw);
+    const markdown = result.response.text()?.trim() ?? "";
 
     if (!markdown) {
       return Response.json({
@@ -114,7 +89,6 @@ export async function POST(request) {
 
     return Response.json({
       markdown,
-      practiceQuiz,
       meta: {
         classLabel,
         subjectName,

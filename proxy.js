@@ -1,8 +1,12 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
+import { sanitizeNextPath } from "./lib/authRedirects";
 import { getSupabaseConfigSafe } from "./lib/supabase/env";
 
 const PROTECTED_PREFIXES = ["/reviser", "/fiche", "/paywall"];
+
+/** Connexion / inscription : si déjà connecté, envoi vers la cible (ex. /reviser), pas l’accueil bloqué. */
+const AUTH_ENTRY_PATHS = new Set(["/auth", "/auth/signin", "/auth/signup"]);
 
 function isProtectedPath(pathname) {
   return PROTECTED_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
@@ -44,6 +48,11 @@ export async function proxy(request) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  if (user && AUTH_ENTRY_PATHS.has(request.nextUrl.pathname)) {
+    const next = sanitizeNextPath(request.nextUrl.searchParams.get("next"));
+    return NextResponse.redirect(new URL(next, request.url));
+  }
 
   if (!user && isProtectedPath(request.nextUrl.pathname)) {
     const redirectUrl = new URL("/auth/signin", request.url);

@@ -2,7 +2,6 @@
 
 import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
-import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import { normalizeLatexDelimiters } from "../lib/normalizeLatexDelimiters";
 
@@ -70,7 +69,7 @@ export function FicheMarkdownSection({ markdown, className = "" }) {
   return (
     <article className={`${articleBaseClass} print:border ${className}`.trim()}>
       <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkMath]}
+        remarkPlugins={[remarkMath]}
         rehypePlugins={[rehypeKatex]}
         components={ficheMdComponents}
       >

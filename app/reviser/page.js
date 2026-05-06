@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -13,27 +13,7 @@ import {
   SHEET_MARKDOWN_VERSION,
   SHEET_STORAGE_KEY,
 } from "../../lib/revisionSheet";
-import { createSupabaseBrowserClient } from "../../lib/supabase/client";
-import AuthUserAvatar from "../../components/AuthUserAvatar";
 import { SelectField } from "../../components/SelectField";
-
-const REVISION_TIPS = [
-  "Répétition espacée : revois la même notion à J+1, J+3 et J+7 pour mieux l’ancrer.",
-  "Rappel actif : cache ta fiche et reformule à l’oral ou à l’écrit avant de relire.",
-  "Méthode Feynman : explique le sujet simplement, comme à quelqu’un qui découvre.",
-  "Alterne lecture courte, questions-réponses et réécriture — plusieurs chemins mémorisent mieux.",
-  "Repère tes erreurs récurrentes et cible-les : c’est souvent là que le gain est le plus rapide.",
-  "Cartes / flashcards : teste-toi sur les définitions et formules, pas seulement en les relisant.",
-  "Carte mentale : relie les idées entre elles — les liens aident à retrouver le détail.",
-  "Bloc Pomodoro (ex. 25 min + petite pause) : garde une intensité soutenable sur la durée.",
-  "Dors assez : la consolidation se fait aussi la nuit ; évite le tout-nuit avant un contrôle.",
-  "Croissance vs perf : vise la compréhension et la progression, pas la perfection immédiate.",
-  "Transforme ton cours en questions avant d’ouvrir les réponses — comme un petit examen blanc.",
-  "Synthèse express : résume une page en 5 lignes pour vérifier ce que tu as vraiment retenu.",
-  "Lire à voix haute engage une autre voie de mémoire — utile pour les listes et définitions.",
-  "Créneau fixe : mieux vaut 20 minutes chaque jour qu’une longue bafouille improvisée.",
-  "Hydrate-toi et aère : l’attention baisse vite quand tu es fatigué ou déshydraté.",
-];
 
 export default function ReviserPage() {
   const router = useRouter();
@@ -43,73 +23,6 @@ export default function ReviserPage() {
   const [topicIndex, setTopicIndex] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [loadingTipIndex, setLoadingTipIndex] = useState(0);
-  /** null = chargement du profil */
-  const [isPremium, setIsPremium] = useState(null);
-  /** null = session pas encore résolue */
-  const [loggedIn, setLoggedIn] = useState(null);
-
-  const loadPremium = useCallback(async () => {
-    const supabase = createSupabaseBrowserClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      setLoggedIn(false);
-      setIsPremium(false);
-      return;
-    }
-    setLoggedIn(true);
-    const { data } = await supabase.from("profiles").select("is_premium").eq("id", user.id).maybeSingle();
-    setIsPremium(!!data?.is_premium);
-  }, []);
-
-  useEffect(() => {
-    void loadPremium();
-  }, [loadPremium]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return undefined;
-    }
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("checkout") !== "success") {
-      return undefined;
-    }
-    let cancelled = false;
-    void (async () => {
-      await loadPremium();
-      if (!cancelled) {
-        window.history.replaceState({}, "", "/reviser");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [loadPremium]);
-
-  useEffect(() => {
-    if (!loading) {
-      return undefined;
-    }
-    const pickRandomLater = window.setTimeout(() => {
-      setLoadingTipIndex(Math.floor(Math.random() * REVISION_TIPS.length));
-    }, 0);
-    const reduceMotion =
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduceMotion) {
-      return () => window.clearTimeout(pickRandomLater);
-    }
-    const intervalMs = 5200;
-    const rotateId = window.setInterval(() => {
-      setLoadingTipIndex((i) => (i + 1) % REVISION_TIPS.length);
-    }, intervalMs);
-    return () => {
-      window.clearTimeout(pickRandomLater);
-      window.clearInterval(rotateId);
-    };
-  }, [loading]);
 
   const classe = CLASSES.find((c) => c.id === classId);
   const subjects = useMemo(
@@ -175,13 +88,6 @@ export default function ReviserPage() {
     if (!canGenerate || !classe || !subject) {
       return;
     }
-    if (isPremium === null) {
-      return;
-    }
-    if (!isPremium) {
-      router.push("/paywall");
-      return;
-    }
     setError(null);
     setLoading(true);
     const topicLabel = topics[Number(topicIndex)];
@@ -206,7 +112,6 @@ export default function ReviserPage() {
       const payload = {
         version: SHEET_MARKDOWN_VERSION,
         markdown: data.markdown,
-        practiceQuiz: Array.isArray(data.practiceQuiz) ? data.practiceQuiz : [],
         meta: data.meta ?? {
           classLabel: classe.label,
           subjectName: subject.name,
@@ -227,43 +132,27 @@ export default function ReviserPage() {
   }
 
   return (
-    <div className="min-h-dvh bg-gradient-to-b from-indigo-50/80 via-slate-50 to-slate-50">
-      <div className="mx-auto flex w-full max-w-xl flex-col px-5 py-12 sm:px-8 sm:py-16">
+    <div className="min-h-dvh bg-[radial-gradient(ellipse_200%_100%_at_50%_-18%,#e0e7ff_0%,#dbeafe_22%,#cffafe_40%,rgba(238,242,255,0.55)_56%,transparent_72%),linear-gradient(180deg,#eef2ff_0%,#f1f5f9_50%,#f1f5f9_100%)]">
+      <div className="mx-auto flex w-full max-w-xl flex-col px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
         <header>
-          <div className="mb-8 print:hidden">
-            <div className="-mx-5 w-[calc(100%+2.5rem)] max-w-none pl-[max(0px,env(safe-area-inset-left,0px))] pr-0 sm:-mx-8 sm:w-[calc(100%+4rem)]">
-              <div className="grid min-h-[4.25rem] grid-cols-[2.5rem_minmax(0,1fr)_max-content] items-center gap-x-0 sm:min-h-[4.5rem] sm:grid-cols-[2.75rem_minmax(0,1fr)_max-content]">
-                <div className="flex justify-start pl-1 sm:pl-0.5">
-                  {loggedIn === false ? (
-                    <Link
-                      href="/"
-                      aria-label="Retour à l’accueil"
-                      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-lg font-semibold leading-none text-indigo-700 transition hover:bg-indigo-50 hover:text-indigo-600 sm:h-11 sm:w-11 sm:text-xl"
-                    >
-                      <span aria-hidden>←</span>
-                    </Link>
-                  ) : (
-                    <div className="h-10 w-10 shrink-0 sm:h-11 sm:w-11" aria-hidden />
-                  )}
-                </div>
-
-                <div className="pointer-events-none flex min-w-0 flex-col items-center justify-center px-1 text-center sm:px-2">
-                  <h1 className="min-w-0 text-center font-[family-name:var(--font-geist-sans)] text-[0.95rem] font-semibold leading-snug tracking-tight text-slate-900 min-[400px]:whitespace-nowrap sm:text-xl md:text-2xl md:leading-tight lg:text-3xl xl:text-4xl">
-                    Fiche de révision complète
-                  </h1>
-                  <p className="mt-2 text-center text-xs font-semibold uppercase tracking-widest text-indigo-600/90 sm:mt-2.5">
-                    Révision facile
-                  </p>
-                </div>
-
-                <div className="flex justify-end justify-self-end pr-[env(safe-area-inset-right,0px)]">
-                  <AuthUserAvatar />
-                </div>
-              </div>
-            </div>
+          <div className="mb-6 print:hidden">
+            <Link
+              href="/"
+              className="text-sm font-semibold text-indigo-700 hover:text-indigo-600"
+            >
+              ← Accueil
+            </Link>
+          </div>
+          <div className="text-center">
+            <h1 className="whitespace-nowrap font-[family-name:var(--font-geist-sans)] text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl md:text-3xl lg:text-4xl">
+              Fiche de révision complète
+            </h1>
+            <p className="mt-2 text-xs font-semibold uppercase tracking-widest text-indigo-600/90 sm:mt-3">
+              Révision facile
+            </p>
           </div>
 
-          <div className="mt-2 space-y-5 rounded-2xl border border-white/60 bg-white/70 p-6 shadow-[0_20px_60px_-24px_rgba(15,23,42,0.35)] backdrop-blur-md sm:mt-0">
+          <div className="mt-8 space-y-5 rounded-2xl border border-white/60 bg-white/70 p-6 shadow-[0_20px_60px_-24px_rgba(15,23,42,0.35)] backdrop-blur-md">
             <SelectField
               id="class"
               label="Classe"
@@ -380,8 +269,7 @@ export default function ReviserPage() {
             {classe?.available ? (
               <div className="space-y-2 pt-1">
                 <p className="text-center text-xs text-slate-600">
-                  Suite Révision facile : essentiel → programme dense → astuces, puis entraînement oral et
-                  quiz interactif.
+                  Même cadre FlashRévis : essentiel → programme dense → astuces (sans quiz).
                   {classId === "3e" && subjectId === "math" ? (
                     <span className="block text-slate-500">
                       Maths 3ᵉ : enrichissement automatique quand la notion est en base experte.
@@ -391,53 +279,11 @@ export default function ReviserPage() {
                 <button
                   type="button"
                   onClick={handleGenerate}
-                  disabled={!canGenerate || loading || isPremium === null}
-                  aria-busy={loading}
-                  className={`inline-flex w-full items-center justify-center gap-2.5 rounded-xl px-5 py-3.5 text-sm font-semibold text-white shadow-lg transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 motion-safe:transition-colors ${
-                    loading
-                      ? "reviser-btn-loading-motion cursor-wait bg-indigo-600 shadow-indigo-600/30"
-                      : !canGenerate || isPremium === null
-                        ? "cursor-not-allowed bg-slate-300 shadow-none hover:bg-slate-300"
-                        : "cursor-pointer bg-indigo-600 shadow-indigo-600/25 hover:bg-indigo-500"
-                  }`}
+                  disabled={!canGenerate || loading}
+                  className="inline-flex w-full items-center justify-center rounded-xl bg-indigo-600 px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-indigo-600/25 transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
                 >
-                  {loading ? (
-                    <>
-                      <span
-                        className="h-[1.125rem] w-[1.125rem] shrink-0 rounded-full border-2 border-white/35 border-t-white motion-safe:animate-spin motion-reduce:animate-none"
-                        aria-hidden
-                      />
-                      <span>Génération en cours…</span>
-                    </>
-                  ) : isPremium === null ? (
-                    "Vérification du compte…"
-                  ) : (
-                    "Générer la fiche"
-                  )}
+                  {loading ? "Génération en cours…" : "Générer la fiche"}
                 </button>
-                {loading ? (
-                  <>
-                    <div
-                      className="mt-3 h-1 overflow-hidden rounded-full bg-indigo-100/90"
-                      role="progressbar"
-                      aria-valuetext="Génération de la fiche en cours"
-                      aria-busy="true"
-                    >
-                      <div className="reviser-loading-bar-sweep h-full rounded-full bg-indigo-400/70" />
-                    </div>
-                    <div
-                      className="mt-4 rounded-xl border border-indigo-100/80 bg-indigo-50/60 px-4 py-3 text-center shadow-inner shadow-indigo-100/40"
-                      aria-live="polite"
-                    >
-                      <p className="text-[0.65rem] font-semibold uppercase tracking-widest text-indigo-600/90">
-                        Astuce révision
-                      </p>
-                      <p className="mt-2 text-sm leading-relaxed text-slate-700">
-                        {REVISION_TIPS[loadingTipIndex]}
-                      </p>
-                    </div>
-                  </>
-                ) : null}
                 {error ? (
                   <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-center text-sm text-red-800">
                     {error}

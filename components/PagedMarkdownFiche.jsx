@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { splitFichePages } from "../lib/splitFichePages";
 import { FicheMarkdownSection } from "./MarkdownFiche";
@@ -68,9 +67,13 @@ function PageTurnIcon({ className }) {
   );
 }
 
-export default function PagedMarkdownFiche({ markdown, exportMode = false }) {
+export default function PagedMarkdownFiche({ markdown }) {
   const pages = splitFichePages(markdown);
   const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    setIndex(0);
+  }, [markdown]);
 
   const last = pages.length - 1;
   const goPrev = useCallback(() => {
@@ -81,23 +84,17 @@ export default function PagedMarkdownFiche({ markdown, exportMode = false }) {
   }, [last]);
 
   useEffect(() => {
-    if (exportMode) {
-      return;
-    }
     window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [index, exportMode]);
+  }, [index]);
 
   useEffect(() => {
-    if (exportMode) {
-      return undefined;
-    }
     function onKey(e) {
       if (e.key === "ArrowLeft") goPrev();
       if (e.key === "ArrowRight") goNext();
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [exportMode, goPrev, goNext]);
+  }, [goPrev, goNext]);
 
   return (
     <div className="space-y-4">
@@ -106,7 +103,7 @@ export default function PagedMarkdownFiche({ markdown, exportMode = false }) {
           <div
             key={i}
             className={
-              exportMode || i === index
+              i === index
                 ? "block"
                 : "hidden print:block print:break-inside-avoid"
             }
@@ -119,7 +116,7 @@ export default function PagedMarkdownFiche({ markdown, exportMode = false }) {
         ))}
       </div>
 
-      {pages.length > 1 && !exportMode ? (
+      {pages.length > 1 ? (
         <div className="print:hidden">
           <div className="flex flex-col items-center gap-3 rounded-2xl border border-indigo-100/80 bg-indigo-50/40 px-4 py-4 sm:flex-row sm:justify-center sm:gap-6">
             <button
@@ -149,28 +146,10 @@ export default function PagedMarkdownFiche({ markdown, exportMode = false }) {
               <PageTurnIcon className="shrink-0 opacity-95" />
               <ChevronRightIcon className="shrink-0 opacity-90" />
             </button>
-
-            <Link
-              href="/reviser"
-              className="inline-flex w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-indigo-200 hover:bg-white hover:text-indigo-800 sm:w-auto"
-            >
-              Nouvelle fiche
-            </Link>
           </div>
           <p className="mt-2 text-center text-[11px] text-slate-500">
             Flèches gauche / droite du clavier
           </p>
-        </div>
-      ) : pages.length === 1 && !exportMode ? (
-        <div className="print:hidden">
-          <div className="flex justify-center rounded-2xl border border-indigo-100/80 bg-indigo-50/40 px-4 py-4">
-            <Link
-              href="/reviser"
-              className="inline-flex w-full max-w-sm items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-indigo-200 hover:text-indigo-800 sm:w-auto"
-            >
-              Nouvelle fiche
-            </Link>
-          </div>
         </div>
       ) : null}
     </div>
